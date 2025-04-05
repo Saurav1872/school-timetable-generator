@@ -52,14 +52,25 @@ def generate_timetable():
         dict: A data structure representing the complete timetable
               Format: {day: {period: {class: (subject, teacher)}}}
     """
-    # Initialize an empty timetable
     timetable = {day: {period: {} for period in range(1, periods_per_day + 1)} for day in days_of_week}
-    
-    # TODO: Implement the timetable generation algorithm
-    # 1. Check if a valid timetable is possible with the given constraints
-    # 2. Assign subjects and teachers to periods for each class
-    # 3. Ensure all constraints are satisfied
-    
+
+    remaining_periods = {class: subjects.copy() for class, subjects in class_subject_periods.items()}
+
+    teacher_availability = {day: {period: set(teachers.keys()) for period in range(1, periods_per_day + 1)} for day in days_of_week}
+
+    for day in days_of_week:
+        for period in range(1, periods_per_day + 1):
+            for class in classes:
+                for subject, count in list(remaining_periods[class].items()):
+                    if count > 0:
+                        for teacher, teachable_subjects in teachers.items():
+                            if subject in teachable_subjects and teacher in teacher_availability[day][period]:
+                                timetable[day][period][class] = (subject, teacher)
+                                remaining_periods[class][subject] -= 1
+                                teacher_availability[day][period].remove(teacher)
+                                break
+                        break
+
     return timetable
 
 
@@ -70,10 +81,13 @@ def display_timetable(timetable):
     Args:
         timetable (dict): The generated timetable
     """
-    # TODO: Implement timetable display logic
-    # Display the timetable for each class
-    # Display the timetable for each teacher
-    pass
+    print("\nSchool Timetable:")
+    for day, periods in timetable.items():
+        print(f"\n{day}:")
+        for period, classes in periods.items():
+            print(f"  Period {period}:")
+            for class, (subject, teacher) in classes.items():
+                print(f"    {class}: {subject} (Teacher: {teacher})")
 
 
 def validate_timetable(timetable):
@@ -87,12 +101,32 @@ def validate_timetable(timetable):
         bool: True if timetable is valid, False otherwise
         str: Error message if timetable is invalid
     """
-    # TODO: Implement validation logic
-    # Check if all classes have their required number of periods for each subject
-    # Check if teachers are not double-booked
-    # Check if teachers are only teaching subjects they can teach
-    
-    return False, "To be implemented"
+    class_subject_count = {class: {subject: 0 for subject in subjects} for class in classes}
+    for day, periods in timetable.items():
+        for period, classes in periods.items():
+            for class, (subject, teacher) in classes.items():
+                class_subject_count[class][subject] += 1
+
+    for class, subject_counts in class_subject_periods.items():
+        for subject, required_count in subject_counts.items():
+            if class_subject_count[class][subject] != required_count:
+                return False, f"{class} - {subject} failed to make"
+
+    for day, periods in timetable.items():
+        for period, classes in periods.items():
+            teacher_set = set()
+            for _, (_, teacher) in classes.items():
+                if teacher in teacher_set:
+                    return False, f"Teacher {teacher} {day}, period {period} - repetitive assignment"
+                teacher_set.add(teacher)
+
+    for day, periods in timetable.items():
+        for period, classes in periods.items():
+            for _, (subject, teacher) in classes.items():
+                if subject not in teachers[teacher]:
+                    return False, f"Teacher {teacher} - {subject} : teacher cannot teach this subject"
+
+    return True, "Timetable is valid"
 
 
 def main():
@@ -103,7 +137,7 @@ def main():
     
     # Generate the timetable
     timetable = generate_timetable()
-    
+
     # Validate the timetable
     is_valid, message = validate_timetable(timetable)
     
